@@ -104,7 +104,7 @@ An alternative approach is now documented using:
 * Terraform Kubernetes provider
 * kubectl_manifest resources
 
-This removes the dependency on argocd-autopilot entirely. See the README in Terraform for examples
+This removes the dependency on argocd-autopilot entirely. See the [Terraform README](terraform/README.md) for bootstrap examples and Terraform-based ArgoCD replacement workflows.
 
 **GitOps State Location**
 

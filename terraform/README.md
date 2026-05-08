@@ -27,6 +27,7 @@ gitops-repo/
   bootstrap/
     root-app.yaml
     argocd-values.yaml
+```
 
 Then Terraform references 
 

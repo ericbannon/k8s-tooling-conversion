@@ -1,0 +1,102 @@
+ARG ARCH=amd64
+ARG ALPINE_VERSION=3.18.3
+ARG ISTIO_VERSION=1.17.1
+ARG CARVEL_YTT_VERSION=0.36.0
+ARG CARVEL_KAPP_VERSION=0.41.0
+ARG TERRRAFORM_VERSION=1.6.1
+ARG YQ_VERSION=4.31.1
+ARG KUBECTL_VERSION=1.25.0
+ARG HELM_VERSION=3.11.2
+ARG BUILDPACKS_VERSION=0.21.1
+ARG ARGOCD_VERSION=2.6.3
+ARG KUSTOMIZE_VERSION=4.5.7
+ARG KUBEGRUNT_VERSION=0.7.11
+ARG OP_CLI_VERSION=2.14.0
+ARG EKSCTL_VERSION=0.139.0
+ARG ARGO_AUTOPILOT_VERSION=0.4.15
+ARG AWS_CLI_VERSION=2.15.14-r0
+ARG CREDHUB_VERSION=2.9.21
+ARG GIT_VERSION=2.40.1
+ARG CURL_VERSION=8.5.0
+ARG JQ_VERSION=1.6
+ARG BASH_VERSION=5.2.15
+ARG ZIP_VERSION=3.0
+ARG VAULT_CLI_VERSION=1.15.4
+ARG WGET_VERSION=1.21.4
+FROM alpine:${ALPINE_VERSION} AS build_base
+ARG ARCH
+ARG ALPINE_VERSION
+ARG ISTIO_VERSION
+ARG CARVEL_YTT_VERSION
+ARG CARVEL_KAPP_VERSION
+ARG TERRRAFORM_VERSION
+ARG YQ_VERSION
+ARG KUBECTL_VERSION
+ARG HELM_VERSION
+ARG BUILDPACKS_VERSION
+ARG ARGOCD_VERSION
+ARG KUSTOMIZE_VERSION
+ARG KUBEGRUNT_VERSION
+ARG OP_CLI_VERSION
+ARG EKSCTL_VERSION
+ARG ARGO_AUTOPILOT_VERSION
+ARG CREDHUB_VERSION
+ARG CURL_VERSION
+ARG VAULT_CLI_VERSION
+ARG WGET_VERSION
+WORKDIR /tmp/build
+RUN apk update && \
+    apk add --no-cache wget~=${WGET_VERSION}
+RUN wget --progress=dot:giga https://github.com/vmware-tanzu/carvel-ytt/releases/download/v${CARVEL_YTT_VERSION}/ytt-linux-${ARCH}; chmod +x ytt-linux-${ARCH}
+RUN wget --progress=dot:giga https://releases.hashicorp.com/terraform/${TERRRAFORM_VERSION}/terraform_${TERRRAFORM_VERSION}_linux_${ARCH}.zip; unzip terraform_${TERRRAFORM_VERSION}_linux_${ARCH}.zip; chmod +x terraform
+RUN wget --progress=dot:giga https://github.com/weaveworks/eksctl/releases/download/v${EKSCTL_VERSION}/eksctl_Linux_${ARCH}.tar.gz; tar -xvf eksctl_Linux_${ARCH}.tar.gz; chmod +x eksctl
+RUN wget --progress=dot:giga https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH}.tar.gz; tar -xvf yq_linux_${ARCH}.tar.gz; chmod +x yq_linux_${ARCH}
+RUN wget --progress=dot:giga https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl; chmod +x kubectl
+RUN wget --progress=dot:giga https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz; tar -zxvf helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz
+RUN wget --progress=dot:giga https://github.com/buildpacks/pack/releases/download/v${BUILDPACKS_VERSION}/pack-v${BUILDPACKS_VERSION}-macos-arm64.tgz; tar -zxvf pack-v${BUILDPACKS_VERSION}-macos-arm64.tgz
+RUN wget --progress=dot:giga https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-linux-${ARCH}; chmod +x argocd-linux-${ARCH}
+RUN wget --progress=dot:giga https://github.com/vmware-tanzu/carvel-kapp/releases/download/v${CARVEL_KAPP_VERSION}/kapp-linux-${ARCH}; chmod +x kapp-linux-${ARCH}
+RUN wget --progress=dot:giga https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz; tar -xvf kustomize_v${KUSTOMIZE_VERSION}_linux_${ARCH}.tar.gz; chmod +x kustomize
+RUN wget --progress=dot:giga https://github.com/gruntwork-io/kubergrunt/releases/download/v${KUBEGRUNT_VERSION}/kubergrunt_linux_${ARCH}; chmod +x kubergrunt_linux_${ARCH}
+RUN wget --progress=dot:giga https://github.com/argoproj-labs/argocd-autopilot/releases/download/v${ARGO_AUTOPILOT_VERSION}/argocd-autopilot-linux-${ARCH}.tar.gz ; tar -xvf argocd-autopilot-linux-${ARCH}.tar.gz; chmod +x argocd-autopilot-linux-${ARCH}
+RUN wget --progress=dot:giga https://github.com/cloudfoundry/credhub-cli/releases/download/${CREDHUB_VERSION}/credhub-linux-amd64-${CREDHUB_VERSION}.tgz; tar -zxvf credhub-linux-amd64-${CREDHUB_VERSION}.tgz; chmod +x credhub
+RUN wget --progress=dot:giga https://releases.hashicorp.com/vault/${VAULT_CLI_VERSION}/vault_${VAULT_CLI_VERSION}_linux_amd64.zip; unzip vault_${VAULT_CLI_VERSION}_linux_amd64.zip; chmod +x vault
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
+RUN apk add --no-cache curl~=${CURL_VERSION} && \
+    wget --progress=dot:giga -O istio_install.sh https://istio.io/downloadIstio && \
+    ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh istio_install.sh - && \
+    wget --progress=dot:giga -O op.zip https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_CLI_VERSION}/op_linux_${ARCH}_v${OP_CLI_VERSION}.zip && \
+    unzip -od ./ op.zip && \
+    rm op.zip
+FROM alpine:${ALPINE_VERSION} AS runtime
+ARG ARCH
+ARG ISTIO_VERSION
+ARG AWS_CLI_VERSION
+ARG GIT_VERSION
+ARG CURL_VERSION
+ARG JQ_VERSION
+ARG BASH_VERSION
+ARG ZIP_VERSION
+RUN apk update && \
+   apk add --no-cache curl~=${CURL_VERSION} && \
+apk add --no-cache jq~=${JQ_VERSION} && \
+apk add --no-cache bash~=${BASH_VERSION} && \
+apk add --no-cache zip~=${ZIP_VERSION} && \ 
+apk add --no-cache git~=${GIT_VERSION} && \ 
+apk add --no-cache aws-cli~=${AWS_CLI_VERSION}
+COPY --from=build_base /tmp/build/ytt-linux-${ARCH} /usr/local/bin/ytt
+COPY --from=build_base /tmp/build/terraform /usr/local/bin/terraform
+COPY --from=build_base /tmp/build/eksctl /usr/local/bin/eksctl
+COPY --from=build_base /tmp/build/yq_linux_${ARCH} /usr/local/bin/yq
+COPY --from=build_base /tmp/build/kubectl /usr/local/bin/kubectl
+COPY --from=build_base /tmp/build/linux-${ARCH}/helm /usr/local/bin/helm
+COPY --from=build_base /tmp/build/istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/istioctl
+COPY --from=build_base /tmp/build/argocd-linux-${ARCH} /usr/local/bin/argocd
+COPY --from=build_base /tmp/build/kustomize /usr/local/bin/kustomize
+COPY --from=build_base /tmp/build/kapp-linux-${ARCH} /usr/local/bin/kapp
+COPY --from=build_base /tmp/build/kubergrunt_linux_${ARCH} /usr/local/bin/kubegrunt
+COPY --from=build_base /tmp/build/argocd-autopilot-linux-${ARCH} /usr/local/bin/argocd-autopilot
+COPY --from=build_base /tmp/build/op /usr/local/bin/op
+COPY --from=build_base /tmp/build/credhub /usr/local/bin/credhub
+COPY --from=build_base /tmp/build/vault /usr/local/bin/vault
+

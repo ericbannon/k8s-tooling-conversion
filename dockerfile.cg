@@ -1,0 +1,134 @@
+ARG ORG=chainguard-private
+ARG CG=cgr.dev/${ORG}
+ARG BASE=${CG}/chainguard-base-fips:latest
+
+ARG ARCH=amd64
+ARG OP_CLI_VERSION=2.34.0
+ARG CREDHUB_VERSION=2.9.56
+ARG BUILDPACKS_VERSION=0.40.4
+
+FROM ${CG}/kubectl-fips:latest AS kubectl
+FROM ${CG}/terraform-fips:latest AS terraform
+FROM ${CG}/helm-fips:latest AS helm
+FROM ${CG}/aws-cli-fips:latest-dev AS awscli
+FROM ${CG}/argo-cli-fips:latest AS argo
+FROM ${CG}/vault-fips:latest AS vault
+FROM ${CG}/argocd-fips:latest AS argocd
+FROM ${CG}/terragrunt-fips:latest AS terragrunt
+
+FROM ${BASE} AS fetch
+ARG ARCH
+ARG BUILDPACKS_VERSION
+ARG OP_CLI_VERSION
+ARG CREDHUB_VERSION
+
+WORKDIR /tmp/build
+
+RUN mkdir -p /out \
+ && apk add --no-cache \
+      ca-certificates \
+      wget \
+      gnutar \
+      gzip \
+      unzip
+
+RUN wget -q https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_CLI_VERSION}/op_linux_${ARCH}_v${OP_CLI_VERSION}.zip -O op.zip \
+ && unzip -q op.zip \
+ && install -m 0755 op /out/op
+
+RUN wget -q https://github.com/cloudfoundry/credhub-cli/releases/download/${CREDHUB_VERSION}/credhub-linux-amd64-${CREDHUB_VERSION}.tgz \
+ && tar -xzf credhub-linux-amd64-${CREDHUB_VERSION}.tgz \
+ && install -m 0755 credhub /out/credhub
+
+RUN wget -q -O pack.tgz https://github.com/buildpacks/pack/releases/download/v${BUILDPACKS_VERSION}/pack-v${BUILDPACKS_VERSION}-linux.tgz \
+ && tar -xzf pack.tgz \
+ && install -m 0755 pack /out/pack
+
+### REMOVING KUBEGRUNT AND ARGOCD-AUTO-PILOT AS THEY ARE NOT NEEDED
+
+#RUN wget -q https://github.com/gruntwork-io/kubergrunt/releases/download/v${KUBEGRUNT_VERSION}/kubergrunt_linux_${ARCH} \
+#&& install -m 0755 kubergrunt_linux_${ARCH} /out/kubergrunt
+
+#RUN wget -q https://github.com/argoproj-labs/argocd-autopilot/releases/download/v${ARGO_AUTOPILOT_VERSION}/argocd-autopilot-linux-${ARCH}.tar.gz \
+# && tar -xzf argocd-autopilot-linux-${ARCH}.tar.gz \
+# && install -m 0755 argocd-autopilot-linux-${ARCH} /out/argocd-autopilot
+
+FROM ${BASE} AS tf-provider-cache
+
+ENV TF_PLUGIN_CACHE_DIR=/opt/terraform/plugin-cache
+ENV TF_CLI_CONFIG_FILE=/etc/terraformrc
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=terraform /usr/bin/terraform /usr/local/bin/terraform
+COPY terraform /tmp/terraform-provider-smoke
+
+RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} \
+ && cat > /etc/terraformrc <<'EOF'
+plugin_cache_dir = "/opt/terraform/plugin-cache"
+disable_checkpoint = true
+EOF
+
+RUN terraform -chdir=/tmp/terraform-provider-smoke init -backend=false
+
+FROM ${BASE} AS runtime
+
+ENV TF_PLUGIN_CACHE_DIR=/opt/terraform/plugin-cache
+ENV TF_CLI_CONFIG_FILE=/etc/terraformrc
+
+RUN apk add --no-cache \
+      bash \
+      busybox \
+      ca-certificates \
+      coreutils \
+      curl \
+      gettext \
+      git \
+      grep \
+      jq \
+      openssh-client \
+      zip \
+      wget \
+      yq \
+      ytt \
+      kapp \
+      eksctl \
+      kustomize \
+      istioctl \
+      buildkit \
+      openssl \
+      openssl-fips-test \
+      file \
+ && mkdir -p ${TF_PLUGIN_CACHE_DIR} \
+ && cat > /etc/terraformrc <<'EOF'
+plugin_cache_dir = "/opt/terraform/plugin-cache"
+disable_checkpoint = true
+EOF
+
+COPY --from=kubectl /usr/bin/kubectl /usr/local/bin/kubectl
+COPY --from=terraform /usr/bin/terraform /usr/local/bin/terraform
+COPY --from=helm /usr/bin/helm /usr/local/bin/helm
+COPY --from=argo /usr/bin/argo /usr/local/bin/argo
+COPY --from=vault /usr/bin/vault /usr/local/bin/vault
+COPY --from=argocd /usr/bin/argocd /usr/local/bin/argocd
+COPY --from=terragrunt /usr/bin/terragrunt /usr/local/bin/terragrunt
+COPY --from=awscli /opt /opt
+COPY --from=awscli /usr/bin/python3.14 /usr/bin/python3.14
+COPY --from=awscli /usr/lib /usr/lib
+
+RUN rm -f /usr/bin/aws /usr/local/bin/aws \
+ && ln -s /opt/chainguard/aws-cli-2/bin/aws /usr/local/bin/aws \
+ && chmod +x /opt/chainguard/aws-cli-2/bin/aws \
+ && /usr/local/bin/aws --version
+
+COPY --from=fetch /out/* /usr/local/bin/
+
+COPY smoke-test.sh /usr/local/bin/smoke-test.sh
+COPY fips-test.sh /usr/local/bin/fips-test.sh
+COPY terraform /usr/local/share/smoke/terraform-provider-smoke
+
+RUN chmod +x \
+    /usr/local/bin/smoke-test.sh \
+    /usr/local/bin/fips-test.sh
+
+ENTRYPOINT ["/bin/bash"]

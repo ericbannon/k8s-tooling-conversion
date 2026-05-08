@@ -12,7 +12,7 @@ FROM ${CG}/terraform-fips:latest AS terraform
 FROM ${CG}/helm-fips:latest AS helm
 FROM ${CG}/aws-cli-fips:latest-dev AS awscli
 FROM ${CG}/argo-cli-fips:latest AS argo
-FROM ${CG}/vault-fips:latest AS vault
+FROM ${CG}/vault-fips:2 AS vault
 FROM ${CG}/argocd-fips:latest AS argocd
 FROM ${CG}/terragrunt-fips:latest AS terragrunt
 

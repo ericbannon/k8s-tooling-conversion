@@ -175,5 +175,12 @@ Track the latest 1Password CLI (`op`) releases and changelog here:
 
 op-cli 2.34.0 embeds go1.25.7 in the latest release and upstream must release a that include Go 1.25.9+ in order to resolve these upstream. Cannot be fixed by organization
 
+### Remaining Areas Waiting for Upstream Fix
+
+1. vault-fips findings - Embedded Go modules inside upstream Vault build
+2. op findings - Embedded Go stdlib + jose libs inside upstream 1Password CLI. Upstream binaries compiled against go1.25.7
+3. pack findings - Embedded Docker/Moby + Go deps inside upstream Buildpacks pack (Embedded inside pack, not your image)
+4. pgx, thrift, go-jose, etc. - Embedded upstream dependencies
+
 
 

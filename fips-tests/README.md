@@ -2,9 +2,7 @@ Validation that the Chainguard JDK FIPS image routes standard JVM crypto operati
 
 ```
 docker run --rm -v "$PWD":/work -w /work \
-
   cgr.dev/YOUR-ORG/jdk-fips:latest \
-
   sh -c 'javac FipsCryptoCheck.java && java FipsCryptoCheck'
 ```
 

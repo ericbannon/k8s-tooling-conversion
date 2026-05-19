@@ -8,6 +8,7 @@ docker run --rm -v "$PWD":/work -w /work \
 
 **Expected Output**
 
+
 ```
 ╰─⠠⠵ docker run --rm -v "$PWD":/work -w /work \
   cgr.dev/chainguard-private/jdk-fips:latest \
@@ -30,4 +31,12 @@ SHA-256 provider: BCFIPS
 SHA-256: kB6lYVgjaU0UvS9n/lZ8mGrhi+Bp4BO/YL7esquWwxk=
 
 AES/GCM provider: BCFIPS
+
+MD5 security operation test:
+EXPECTED BLOCK: MD5withRSA is not available
+Actual exception output:
+java.security.NoSuchAlgorithmException: MD5withRSA Signature not available
+	at java.base/java.security.Signature.getInstance(Signature.java:272)
+	at FipsCryptoCheck.md5SecurityOperationShouldFail(FipsCryptoCheck.java:57)
+	at FipsCryptoCheck.main(FipsCryptoCheck.java:49)
 ```
